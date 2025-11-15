@@ -1,11 +1,18 @@
 
 #ifdef _WIN32
-#define GLAD_GL_IMPLEMENTATION // Necessary for headeronly version.
-#include <glad/gl.h>
+#include <windows.h>
+// Use glad to initialize OpenGL context on Windows
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
 #elif __APPLE__
 #include <OpenGL/gl3.h>
-#endif
 #include <GLFW/glfw3.h>
+
+#elif __linux__
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#endif
 
 #include "arcball.h"
 #include "scene.h"

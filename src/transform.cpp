@@ -5,9 +5,13 @@
 
 #ifdef _WIN32
 //#define GLAD_GL_IMPLEMENTATION // Necessary for headeronly version.
-#include <glad/gl.h>
+#include <glad/glad.h>
+
 #elif __APPLE__
 #include <OpenGL/gl3.h>
+
+#elif __linux__
+#include <glad/glad.h>
 #endif
 
 TransformPtr Transform::Make ()
