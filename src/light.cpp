@@ -94,3 +94,14 @@ void Light::Load (StatePtr st) const
   glm::vec4 pos = M * m_pos;
   shd -> SetUniform ("lpos",pos);
 }
+
+/* glm::mat4 Light::shadowMatrix(const glm::vec4& n) {
+  auto l = m_pos;
+    float ndotl = glm::dot(glm::vec3(n), glm::vec3(l));
+    return glm::mat4(
+        glm::vec4(ndotl + n.w - l.x * n.x,   -l.y * n.x, -l.z * n.x, -n.x),
+        glm::vec4(-l.x * n.y, ndotl + n.w - l.y * n.y, -l.z * n.y, -n.y),
+        glm::vec4(-l.x * n.z, -l.y * n.z, ndotl + n.w - l.z * n.z, -n.z),
+        glm::vec4(-l.x * n.w, -l.y * n.w, -l.z * n.w, ndotl)
+    );
+} */

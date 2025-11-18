@@ -38,31 +38,39 @@ static float viewer_pos[3] = {2.0f, 3.5f, 4.0f};
 static ScenePtr scene;
 static Camera3DPtr camera;
 static ArcballPtr arcball;
+static LightPtr light;
+
+glm::mat4 shadowMatrix(const glm::vec4& n, const glm::vec4& l) {
+    float ndotl = glm::dot(glm::vec3(n), glm::vec3(l));
+    return glm::mat4(
+        glm::vec4(ndotl + n.w - l.x * n.x,   -l.y * n.x, -l.z * n.x, -n.x),
+        glm::vec4(-l.x * n.y, ndotl + n.w - l.y * n.y, -l.z * n.y, -n.y),
+        glm::vec4(-l.x * n.z, -l.y * n.z, ndotl + n.w - l.z * n.z, -n.z),
+        glm::vec4(-l.x * n.w, -l.y * n.w, -l.z * n.w, ndotl)
+    );
+}
 
 static void initialize (void)
 {
   // set background color: white 
   glClearColor(1.0f,1.0f,1.0f,1.0f);
-  // enable depth test 
-  glEnable(GL_DEPTH_TEST);
-  glEnable(GL_CULL_FACE);  // cull back faces
 
   // create objects
   camera = Camera3D::Make(viewer_pos[0],viewer_pos[1],viewer_pos[2]);
   //camera->SetOrtho(true);
   arcball = camera->CreateArcball();
 
-  //LightPtr light = ObjLight::Make(viewer_pos[0],viewer_pos[1],viewer_pos[2]);
-  LightPtr light = Light::Make(0.0f,0.0f,0.0f,1.0f,"camera");
-
+  light = Light::Make(viewer_pos[0],viewer_pos[1],viewer_pos[2]);
+  //LightPtr light = Light::Make(0.0f,0.0f,0.0f,1.0f,"camera");
+  
   AppearancePtr white = Material::Make(1.0f,1.0f,1.0f);
   AppearancePtr red = Material::Make(1.0f,0.5f,0.5f);
   AppearancePtr poff = PolygonOffset::Make(-10,-10);
   AppearancePtr paper = Texture::Make("decal","../images/paper.jpg");
 
-  TransformPtr trf1 = Transform::Make();
+/*   TransformPtr trf1 = Transform::Make();
   trf1->Scale(3.0f,0.3f,3.0f);
-  trf1->Translate(0.0f,-1.0f,0.0f);
+  trf1->Translate(0.0f,-1.0f,0.0f); */
   TransformPtr trf2 = Transform::Make();
   trf2->Scale(0.5f,0.5f,0.5f);
   trf2->Translate(0.0f,1.0f,0.0f);
@@ -72,8 +80,8 @@ static void initialize (void)
   trf3->Rotate(90.0f,-1.0f,0.0f,0.0f);
   trf3->Scale(0.5f,0.7f,1.0f);
 
-  Error::Check("before shps");
-  ShapePtr cube = Cube::Make();
+/*   Error::Check("before shps");
+  ShapePtr cube = Cube::Make(); */
   Error::Check("before quad");
   ShapePtr quad = Quad::Make();
   Error::Check("before sphere");
@@ -82,22 +90,22 @@ static void initialize (void)
 
   // create shader
   ShaderPtr shader = Shader::Make(light,"world");
-  shader->AttachVertexShader("../shaders/ilum_vert/vertex.glsl");
-  shader->AttachFragmentShader("../shaders/ilum_vert/fragment.glsl");
+  shader->AttachVertexShader("shaders/ilum_vert/vertex.glsl");
+  shader->AttachFragmentShader("shaders/ilum_vert/fragment.glsl");
   shader->Link();
 
   // Define a different shader for texture mapping
   // An alternative would be to use only this shader with a "white" texture for untextured objects
   ShaderPtr shd_tex = Shader::Make(light,"world");
-  shd_tex->AttachVertexShader("../shaders/ilum_vert/vertex_texture.glsl");
-  shd_tex->AttachFragmentShader("../shaders/ilum_vert/fragment_texture.glsl");
+  shd_tex->AttachVertexShader("shaders/ilum_vert/vertex_texture.glsl");
+  shd_tex->AttachFragmentShader("shaders/ilum_vert/fragment_texture.glsl");
   shd_tex->Link();
 
   // build scene
   NodePtr root = Node::Make(shader,
-    {Node::Make(trf1,{red},{cube}),
+    {//Node::Make(trf1,{red},{cube}),
      Node::Make(shd_tex,trf3,{white,poff,paper},{quad}),
-     Node::Make(trf2,{white},{sphere})
+     Node::Make(trf2,{white},{sphere}), 
     }
   );
   scene = Scene::Make(root);
@@ -106,9 +114,68 @@ static void initialize (void)
 static void display (GLFWwindow* win)
 { 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear window 
+  // enable depth test 
+  glEnable(GL_DEPTH_TEST);
+  glEnable(GL_CULL_FACE);  // cull back face
   Error::Check("before render");
   scene->Render(camera);
   Error::Check("after render");
+
+  glEnable(GL_STENCIL_TEST);
+  glStencilFunc(GL_NEVER, 1, 0xFFFF);
+  glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);  
+
+
+
+  glm::mat4 sm = shadowMatrix(glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec4(viewer_pos[0],viewer_pos[1],viewer_pos[2], 1.0f));
+
+  auto matrix = scene->GetRoot()->GetModelMatrix();
+  auto mBackup = matrix;
+  matrix = sm * matrix;
+
+  auto shadowTrf1 = Transform::Make();
+  shadowTrf1->MultMatrix(matrix);
+  scene->GetRoot()->SetTransform(shadowTrf1);
+  scene->Render(camera);
+  auto oriBackup = Transform::Make();
+  oriBackup->MultMatrix(mBackup);
+  scene->GetRoot()->SetTransform(oriBackup);
+
+  // separando o objeto sombra em outra cena para aplicar a transformacao de sombra
+
+
+
+  
+  glStencilFunc(GL_EQUAL, 0, 0xFFFF);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+  glBlendFunc(GL_ONE, GL_ONE);
+  glEnable(GL_BLEND);
+  glDepthFunc(GL_EQUAL);
+
+
+  ShapePtr cube = Cube::Make();
+  TransformPtr trf1 = Transform::Make();
+  trf1->Scale(3.0f,0.3f,3.0f);
+  trf1->Translate(0.0f,-1.0f,0.0f);
+  AppearancePtr red = Material::Make(1.0f,0.5f,0.5f);
+  ShaderPtr shader = Shader::Make(light,"world");
+  shader->AttachVertexShader("shaders/ilum_vert/vertex.glsl");
+  shader->AttachFragmentShader("shaders/ilum_vert/fragment.glsl");
+  shader->Link();
+  ScenePtr shadowScene = Scene::Make(Node::Make(shader, trf1,{red},{cube}));
+  
+  auto matrix2 = shadowScene->GetRoot()->GetModelMatrix();
+  matrix2 = sm * matrix2;
+
+  auto shadowTrf = Transform::Make();
+  shadowTrf->MultMatrix(matrix2);
+  shadowScene->GetRoot()->SetTransform(shadowTrf);
+  shadowScene->Render(camera);
+
+  
+  glDepthFunc(GL_LESS);
+  glDisable(GL_STENCIL_TEST);
+  glDisable(GL_BLEND);
 }
 
 static void error (int code, const char* msg)
@@ -184,6 +251,12 @@ int main ()
       printf("Failed to initialize GLAD OpenGL context\n");
       exit(1);
   }
+#endif
+#if defined(__linux__) && defined(__glad_h_)
+  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+    printf("Failed to initialize GLAD OpenGL context\n");
+    exit(1);
+   }
 #endif
   printf("OpenGL version: %s\n", glGetString(GL_VERSION));
 

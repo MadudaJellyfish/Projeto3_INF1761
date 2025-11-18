@@ -16,6 +16,7 @@ class Light {
   glm::vec4 m_spe;
   glm::vec4 m_pos;
   NodePtr m_reference;
+  glm::mat4 m_shadows; 
 protected:
   Light (float x, float y, float z, float w, const std::string& space);
 public:
@@ -28,6 +29,8 @@ public:
   void SetReference (NodePtr reference);
   NodePtr GetReference () const;
   void Load (StatePtr st) const;
+  //glm::mat4 Light::shadowMatrix(const glm::vec4& n);
+
 };
 
 #endif
