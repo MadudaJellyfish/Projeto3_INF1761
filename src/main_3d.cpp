@@ -121,11 +121,11 @@ static void display (GLFWwindow* win)
   scene->Render(camera);
   Error::Check("after render");
 
-  glEnable(GL_STENCIL_TEST);
+/*   glEnable(GL_STENCIL_TEST);
   glStencilFunc(GL_NEVER, 1, 0xFFFF);
-  glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);  
+  glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);   */
 
-
+  Error::Check("inicio stencil");
 
   glm::mat4 sm = shadowMatrix(glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec4(viewer_pos[0],viewer_pos[1],viewer_pos[2], 1.0f));
 
@@ -142,21 +142,21 @@ static void display (GLFWwindow* win)
   scene->GetRoot()->SetTransform(oriBackup);
 
   // separando o objeto sombra em outra cena para aplicar a transformacao de sombra
-
-
-
+  Error::Check("antes cena sombra");
   
-  glStencilFunc(GL_EQUAL, 0, 0xFFFF);
+/*   glStencilFunc(GL_EQUAL, 0, 0xFFFF);
   glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
   glBlendFunc(GL_ONE, GL_ONE);
   glEnable(GL_BLEND);
-  glDepthFunc(GL_EQUAL);
+  glDepthFunc(GL_EQUAL); */
+  
+  Error::Check("depois cena sombra");
 
 
   ShapePtr cube = Cube::Make();
   TransformPtr trf1 = Transform::Make();
   trf1->Scale(3.0f,0.3f,3.0f);
-  trf1->Translate(0.0f,-1.0f,0.0f);
+  trf1->Translate(0.0f,-1.1f,0.0f);
   AppearancePtr red = Material::Make(1.0f,0.5f,0.5f);
   ShaderPtr shader = Shader::Make(light,"world");
   shader->AttachVertexShader("shaders/ilum_vert/vertex.glsl");
@@ -164,18 +164,19 @@ static void display (GLFWwindow* win)
   shader->Link();
   ScenePtr shadowScene = Scene::Make(Node::Make(shader, trf1,{red},{cube}));
   
-  auto matrix2 = shadowScene->GetRoot()->GetModelMatrix();
-  matrix2 = sm * matrix2;
-
+  /* auto matrix2 = scene->GetRoot()->GetModelMatrix();
   auto shadowTrf = Transform::Make();
   shadowTrf->MultMatrix(matrix2);
-  shadowScene->GetRoot()->SetTransform(shadowTrf);
+  shadowScene->GetRoot()->SetTransform(shadowTrf); */
   shadowScene->Render(camera);
 
+  Error::Check("final cena sombra");
   
   glDepthFunc(GL_LESS);
   glDisable(GL_STENCIL_TEST);
   glDisable(GL_BLEND);
+  Error::Check("final display");
+
 }
 
 static void error (int code, const char* msg)
