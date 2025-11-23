@@ -27,7 +27,6 @@
 #include "error.h"
 #include "shader.h"
 #include "light.h"
-#include "light.h"
 #include "polyoffset.h"
 
 #include <iostream>
@@ -36,8 +35,9 @@
 static float viewer_pos[3] = {2.0f, 3.5f, 4.0f};
 
 static ScenePtr scene;
+static ScenePtr reflector;
 static Camera3DPtr camera;
-static ArcballPtr arcball;
+//static ArcballPtr arcball;
 
 static void initialize (void)
 {
@@ -50,7 +50,7 @@ static void initialize (void)
   // create objects
   camera = Camera3D::Make(viewer_pos[0],viewer_pos[1],viewer_pos[2]);
   //camera->SetOrtho(true);
-  arcball = camera->CreateArcball();
+  //arcball = camera->CreateArcball();
 
   //LightPtr light = ObjLight::Make(viewer_pos[0],viewer_pos[1],viewer_pos[2]);
   LightPtr light = Light::Make(0.0f,0.0f,0.0f,1.0f,"camera");
@@ -58,13 +58,14 @@ static void initialize (void)
   AppearancePtr white = Material::Make(1.0f,1.0f,1.0f);
   AppearancePtr red = Material::Make(1.0f,0.5f,0.5f);
   AppearancePtr poff = PolygonOffset::Make(-10,-10);
-  AppearancePtr paper = Texture::Make("decal","../images/paper.jpg");
+  AppearancePtr paper = Texture::Make("decal","images/paper.jpg");
+  AppearancePtr floor_material = Material::Make(0.8f, 0.8f, 1.0f, 0.5f);
 
   TransformPtr trf1 = Transform::Make();
-  trf1->Scale(3.0f,0.3f,3.0f);
+  trf1->Scale(3.0f,0.01f,3.0f);
   trf1->Translate(0.0f,-1.0f,0.0f);
   TransformPtr trf2 = Transform::Make();
-  trf2->Scale(0.5f,0.5f,0.5f);
+  trf2->Scale(1.0f,1.0f,1.0f);
   trf2->Translate(0.0f,1.0f,0.0f);
   TransformPtr trf3 = Transform::Make();
   trf3->Translate(0.8f,0.0f,0.8f);
@@ -81,33 +82,65 @@ static void initialize (void)
   Error::Check("after shps");
 
   // create shader
-  ShaderPtr shader = Shader::Make(light,"world");
-  shader->AttachVertexShader("../shaders/ilum_vert/vertex.glsl");
-  shader->AttachFragmentShader("../shaders/ilum_vert/fragment.glsl");
+  ShaderPtr shader = Shader::Make(light,"camera");
+  shader->AttachVertexShader("shaders/ilum_vert/vertex.glsl");
+  shader->AttachFragmentShader("shaders/ilum_vert/fragment.glsl");
   shader->Link();
 
   // Define a different shader for texture mapping
   // An alternative would be to use only this shader with a "white" texture for untextured objects
-  ShaderPtr shd_tex = Shader::Make(light,"world");
-  shd_tex->AttachVertexShader("../shaders/ilum_vert/vertex_texture.glsl");
-  shd_tex->AttachFragmentShader("../shaders/ilum_vert/fragment_texture.glsl");
+  ShaderPtr shd_tex = Shader::Make(light,"camera");
+  shd_tex->AttachVertexShader("shaders/ilum_vert/vertex_texture.glsl");
+  shd_tex->AttachFragmentShader("shaders/ilum_vert/fragment_texture.glsl");
   shd_tex->Link();
 
   // build scene
   NodePtr root = Node::Make(shader,
-    {Node::Make(trf1,{red},{cube}),
-     Node::Make(shd_tex,trf3,{white,poff,paper},{quad}),
+    {Node::Make(shd_tex,trf3,{white,poff,paper},{quad}),
      Node::Make(trf2,{white},{sphere})
     }
   );
   scene = Scene::Make(root);
+  reflector = Scene::Make(Node::Make(shader, trf1, { floor_material }, { cube }));
+
+}
+
+static void reshape_reflection() 
+{
+
 }
 
 static void display (GLFWwindow* win)
 { 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear window 
   Error::Check("before render");
+  NodePtr root = scene->GetRoot();
+  TransformPtr reflector_trf = Transform::Make();
+  reflector_trf->Scale(1.0f, -1.0f, 1.0f); 
+
+  glEnable(GL_STENCIL_TEST);
+  glStencilFunc(GL_NEVER, 1, 0xFFFF);
+  glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+  reflector->Render(camera);
+
+  glStencilFunc(GL_EQUAL, 1, 0xFFFF);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+  root->SetTransform(reflector_trf);
+
+  glFrontFace(GL_CW);
   scene->Render(camera);
+  glFrontFace(GL_CCW);
+
+  root->SetTransform(nullptr);
+
+  glDisable(GL_STENCIL_TEST);
+  scene->Render(camera);
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  reflector->Render(camera);
+  glDisable(GL_BLEND);
+
   Error::Check("after render");
 }
 
@@ -137,7 +170,7 @@ static void cursorpos (GLFWwindow* win, double x, double y)
   glfwGetFramebufferSize(win, &fb_w, &fb_h);
   x = x * fb_w / wn_w;
   y = (wn_h - y) * fb_h / wn_h;
-  arcball->AccumulateMouseMotion(int(x),int(y));
+  //arcball->AccumulateMouseMotion(int(x),int(y));
 }
 static void cursorinit (GLFWwindow* win, double x, double y)
 {
@@ -147,7 +180,7 @@ static void cursorinit (GLFWwindow* win, double x, double y)
   glfwGetFramebufferSize(win, &fb_w, &fb_h);
   x = x * fb_w / wn_w;
   y = (wn_h - y) * fb_h / wn_h;
-  arcball->InitMouseMotion(int(x),int(y));
+ // arcball->InitMouseMotion(int(x),int(y));
   glfwSetCursorPosCallback(win, cursorpos);     // cursor position callback
 }
 static void mousebutton (GLFWwindow* win, int button, int action, int mods)
@@ -180,7 +213,7 @@ int main ()
   
   glfwMakeContextCurrent(win);
 #ifdef _WIN32
-  if (!gladLoadGL(glfwGetProcAddress)) {
+  if (!gladLoadGL()) {
       printf("Failed to initialize GLAD OpenGL context\n");
       exit(1);
   }
