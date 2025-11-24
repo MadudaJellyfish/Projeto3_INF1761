@@ -103,6 +103,7 @@ public:
   glm::mat4 GetMatrix () const;
   glm::mat4 GetModelMatrix ();
   void Render (StatePtr st);
+
 };
 
 #endif
