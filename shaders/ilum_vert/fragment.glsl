@@ -11,6 +11,7 @@ uniform vec4 lspe;
 uniform vec4 mamb;
 uniform vec4 mdif;
 uniform vec4 mspe;
+uniform float mopacity;
 uniform float mshi;
 
 out vec4 fcolor;
@@ -39,7 +40,6 @@ void main (void)
   color += mspe * lspe * pow(max(0,dot(refl,e)),mshi); 
   }
 
-  fcolor = color;
-  
-}
+  fcolor = vec4(color.rgb, mopacity);
 
+}
